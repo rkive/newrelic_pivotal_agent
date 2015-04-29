@@ -92,7 +92,8 @@ module RedisPlugin
         end
         redis = Redis.new(options)
         info = redis.info
-        report_stats(info)
+        dbsize = redis.dbsize
+        report_stats(info, dbsize)
         # Only do testruns once, then quit
         if "#{self.testrun}" == "true" then exit end
       rescue => e
@@ -106,7 +107,7 @@ module RedisPlugin
 
     private
 
-    def report_stats(stats)
+    def report_stats(stats, dbsize)
       report_metric_check_debug("UsedCPU/System", @metric_types["used_cpu_sys"], stats["used_cpu_sys"])
       report_metric_check_debug("UsedCPU/User", @metric_types["used_cpu_user"], stats["used_cpu_user"])
       report_metric_check_debug("UsedCPU/SystemChildren", @metric_types["used_cpu_sys_children"], stats["used_cpu_sys_children"])
@@ -124,6 +125,7 @@ module RedisPlugin
       report_metric_check_debug("Keys/KeySpaceMisses", @metric_types["keyspace_misses"], stats["keyspace_misses"])
       report_metric_check_debug("Keys/Expired", @metric_types["expired_keys"], stats["expired_keys"])
       report_metric_check_debug("Keys/Evicted", @metric_types["evicted_keys"], stats["evicted_keys"])
+      report_metric_check_debug("Keys/DBsize", @metric_types["dbsize"], dbsize)
     end
 
 
