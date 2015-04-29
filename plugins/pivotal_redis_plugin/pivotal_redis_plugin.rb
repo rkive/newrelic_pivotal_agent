@@ -41,7 +41,7 @@ module RedisPlugin
   #
   class Agent < NewRelic::Plugin::Agent::Base
 
-    agent_config_options :hostname, :password, :hostport, :agent_name, :debug, :testrun
+    agent_config_options :hostname, :password, :hostport, :agent_name, :debug, :testrun, :keys
     agent_guid "com.gopivotal.newrelic.plugins.redis"
     agent_version "1.0.5"
 
@@ -78,6 +78,30 @@ module RedisPlugin
       @metric_types["used_cpu_user_children"] = "seconds"
     end
 
+    def get_key_details(key_names)
+      key_details = []
+
+      key_names.each do |key|
+        key.map do |type,name|
+          case type
+          # For now we only care about reporting on lists.
+          when 'list'
+            metrics = get_list_metrics(name)
+            key_details << { name => metrics }
+          end
+        end
+      end
+
+      return key_details
+    end
+
+    def get_list_metrics(list_name)
+      metrics = {}
+      # For now we only care about reporting length.
+      metrics["llen"] = @redis.llen(list_name)
+      return metrics
+    end
+
     def poll_cycle
       begin
           if "#{self.debug}" == "true"
@@ -90,10 +114,14 @@ module RedisPlugin
         if self.password
           options[:password] = "#{self.password}"
         end
-        redis = Redis.new(options)
-        info = redis.info
-        dbsize = redis.dbsize
-        report_stats(info, dbsize)
+        @redis = Redis.new(options)
+        info = @redis.info
+        dbsize = @redis.dbsize
+
+        # We can define keys that we want to gather more details
+        key_details = get_key_details(self.keys) if self.keys
+
+        report_stats(info, dbsize, key_details)
         # Only do testruns once, then quit
         if "#{self.testrun}" == "true" then exit end
       rescue => e
@@ -107,7 +135,7 @@ module RedisPlugin
 
     private
 
-    def report_stats(stats, dbsize)
+    def report_stats(stats, dbsize, key_details)
       report_metric_check_debug("UsedCPU/System", @metric_types["used_cpu_sys"], stats["used_cpu_sys"])
       report_metric_check_debug("UsedCPU/User", @metric_types["used_cpu_user"], stats["used_cpu_user"])
       report_metric_check_debug("UsedCPU/SystemChildren", @metric_types["used_cpu_sys_children"], stats["used_cpu_sys_children"])
@@ -126,6 +154,16 @@ module RedisPlugin
       report_metric_check_debug("Keys/Expired", @metric_types["expired_keys"], stats["expired_keys"])
       report_metric_check_debug("Keys/Evicted", @metric_types["evicted_keys"], stats["evicted_keys"])
       report_metric_check_debug("Keys/DBsize", @metric_types["dbsize"], dbsize)
+
+      if key_details
+        key_details.each do |key|
+          key.map do |key_name,metric|
+            metric.map do |metric_name,metric_value|
+              report_metric_check_debug("Keys/Details/#{key_name}/#{metric_name}", @metric_types[metric_name], metric_value)
+            end
+          end
+        end
+      end
     end
 
 

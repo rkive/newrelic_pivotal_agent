@@ -68,6 +68,9 @@ agents:
       #debug: false
       # Set "testrun: true" to use input from local text/html files. Only parses input once, then quits.
       #testrun: false
+      # Provide a set of keys that you would like to gather metrics on.
+      #keys:
+      #  - key_name
     #-
       #hostname: localhost
       #hostport: 6389
@@ -75,5 +78,8 @@ agents:
       #debug: false
       # Set "testrun: true" to use input from local text/html files. Only parses input once, then quits.
       #testrun: false
+      # Provide a set of keys that you would like to gather metrics on.
+      #keys:
+      #  - key_name
 
 
